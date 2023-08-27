@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Holidays Calendar</title>
+    <link rel="stylesheet" href="/styles/style.css">
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+        const socket = io();
+    </script>
+</head>
+<body class="bg-[url('/img/bg.jpg')] bg-no-repeat bg-center bg-cover">
+<div class="container mx-auto p-8">
+    <div id="cat" class="flex flex-col mb-4"></div>
+    <script>
+        socket.on('cat', (pic) => {
+            const catDiv = document.getElementById('cat');
+            if (!pic.is_correct_country) catDiv.innerHTML += '<p class="self-center mb-2 text-white">A cat from your country couldn\'t be found, so have a random one!</p>';
+            else catDiv.innerHTML += `<p class="self-center mb-2 text-white">A cat from your country: ${pic.breeds[0].name}</p>`;
+            catDiv.innerHTML += `<img src="${pic.url}" alt="cat" class="rounded max-h-48 self-center">`;
+        })
+    </script>
+    <div id="calendar" class="grid grid-cols-4 gap-4">
+        <script>
+            socket.on('data', (d) => {
+                const data = d.sort((a, b) => new Date(b.date) - new Date(a.date)).reverse();
+                const container = document.getElementById('calendar');
+
+                for (let month = 0; month < 12; month++) {
+                    const calendar = createCalendar(month, data);
+                    container.appendChild(calendar);
+                }
+            });
+
+            function createCalendar(month, holidays) {
+                const currentDate = new Date();
+                const currentYear = currentDate.getFullYear();
+                const daysInMonth = new Date(currentYear, month + 1, 0).getDate();
+                const firstDayOfWeek = (new Date(currentYear, month, 1).getDay() + 6) % 7;
+
+                const calendarContainer = document.createElement('div');
+                calendarContainer.classList.add('calendar', 'bg-gray-800', 'p-2', 'rounded', 'shadow-md', 'mb-4');
+
+                const monthHeader = document.createElement('div');
+                monthHeader.classList.add('font-semibold', 'text-center', 'mb-1', 'text-sm', 'text-white');
+                monthHeader.textContent = new Date(currentYear, month).toLocaleString('default', { month: 'short' });
+                calendarContainer.appendChild(monthHeader);
+
+                const daysGrid = document.createElement('div');
+                daysGrid.classList.add('grid', 'grid-cols-7', 'gap-1');
+                const dayNames = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+
+                dayNames.forEach(dayName => {
+                    const dayLabel = document.createElement('div');
+                    dayLabel.classList.add('col-span-1', 'font-semibold', 'text-center', 'text-xs', 'text-gray-500');
+                    dayLabel.textContent = dayName;
+                    daysGrid.appendChild(dayLabel);
+                });
+
+                let dayCount = 1;
+                for (let i = 0; i < 42; i++) {
+                    const dayCell = document.createElement('div');
+                    dayCell.classList.add('col-span-1', 'text-center', 'py-1', 'text-xs', 'relative', 'mt-2');
+
+                    if (i >= firstDayOfWeek && dayCount <= daysInMonth) {
+                        const holidayNames = holidays
+                            .filter(holiday => new Date(holiday.date).getMonth() === month && new Date(holiday.date).getDate() === dayCount)
+                            .map(holiday => holiday.name);
+
+                        // Create the day number element here
+                        const dayNumber = document.createElement('div');
+                        dayNumber.classList.add('text-center', 'text-xs', 'z-20');
+                        dayNumber.textContent = dayCount;
+
+                        if (holidayNames.length > 0) {
+                            const holidayCircle = document.createElement('div');
+                            holidayCircle.classList.add('absolute', 'top-1/2', 'left-1/2', '-translate-x-1/2', '-translate-y-1/2', 'w-6', 'h-6', 'bg-green-100', 'rounded-full', 'flex', 'items-center', 'justify-center', 'z-10');
+
+                            const holidayTooltip = document.createElement('div');
+                            holidayTooltip.classList.add('absolute', 'bottom-full', 'left-1/2', '-translate-x-1/2', 'bg-gray-700', 'text-xs', 'px-2', 'py-1', 'rounded', 'opacity-0', 'z-[-1]', 'text-white', 'text-xs');
+                            holidayTooltip.textContent = holidayNames[0];
+
+                            dayNumber.classList.add('relative');
+
+                            holidayCircle.appendChild(dayNumber);
+                            dayCell.appendChild(holidayCircle);
+                            dayCell.appendChild(holidayTooltip);
+
+                            holidayCircle.addEventListener('mouseenter', () => {
+                                holidayTooltip.classList.add('opacity-100');
+                                holidayTooltip.classList.add('z-30')
+                                holidayTooltip.classList.remove('z-[-1]')
+                            });
+
+                            holidayCircle.addEventListener('mouseleave', () => {
+                                holidayTooltip.classList.remove('opacity-100');
+                                holidayTooltip.classList.remove('z-30')
+                                holidayTooltip.classList.add('z-[-1]')
+                            });
+                        } else {
+                            dayCell.appendChild(dayNumber);
+                            dayCell.classList.add('text-gray-100');
+                        }
+
+                        dayCount++;
+                    }
+
+                    daysGrid.appendChild(dayCell);
+                }
+
+                calendarContainer.appendChild(daysGrid);
+                return calendarContainer;
+            }
+        </script>
+    </div>
+</div>
+<script>
+    socket.emit('getItems')
+</script>
+</body>
+</html>
